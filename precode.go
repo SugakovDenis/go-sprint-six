@@ -44,30 +44,39 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(tasks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	_, err = w.Write(resp)
 	if err != nil {
 		fmt.Errorf("%s", err)
+		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp)
+	w.Header().Set("Content-Type", "application/json")
+
 }
 
 func getTask(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	task, ok := tasks[id]
 	if !ok {
-		http.Error(w, "Задача не найдена", http.StatusBadRequest)
+		http.Error(w, "Задача не найдена", http.StatusBadGateway)
+		return
 	}
 	resp, err := json.Marshal(task)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp)
+	_, err = w.Write(resp)
+	if err != nil {
+		http.Error(w, "Ошибка записи ответа", http.StatusBadGateway)
+		return
+	}
+
 }
 
 func postTasks(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +91,9 @@ func postTasks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	if _, ok := tasks[task.ID]; ok {
+		http.Error(w, "Такой id уже существует", http.StatusBadRequest)
+	}
 	tasks[task.ID] = task
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -93,6 +104,7 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	_, ok := tasks[id]
 	if !ok {
 		http.Error(w, "Задача не найдена", http.StatusBadRequest)
+		return
 	}
 	delete(tasks, id)
 	w.Header().Set("Content-Type", "application/json")
